@@ -1,49 +1,24 @@
-# Ultahost VM Agent
+## ✅ Check if Go is installed
+go version
 
-This is a secure HTTP-based agent designed to be installed on Ultahost-provisioned VMs to receive and execute Linux commands remotely via `/run-command`.
+## ⬇️ Install Go (if not installed)
+sudo apt update
+sudo apt install golang-go -y
 
-## Features
-- 🔐 Token-based authentication (hash)
-- 🔒 IP whitelisting (backend-only)
-- ✅ Lightweight, single binary Go app
-- 🛡️ No SSH required, safe for cloud environments
+## 📁 Go to the agent project directory
+cd path/to/your-agent-project
 
-## Environment Variables
-- `RUN_AGENT_HASH`: Shared secret to authenticate the backend
-- `WHITELISTED_IP`: Public IP of Ultahost backend allowed to send requests
+## 🛠️ Build the agent binary
+make build
 
-## Endpoints
+## 📦 Check the size of the built binary
+make size
 
-### POST `/run-command`
-Request:
-```json
-{
-  "command": "df -h",
-  "hash": "3432748974983jc93..."
-}
-```
+## 🚀 Run the compiled agent
+./dist/ultahost-agent
 
-Response:
-```json
-{
-  "output": "Filesystem info...",
-  "error": ""
-}
-```
+## 🧹 Clean up build artifacts (optional)
+make clean
 
-## Deploy via systemd
-1. Copy binary to `/usr/local/bin/run-agent`
-2. Copy `run-agent.service` to `/etc/systemd/system/`
-3. Copy `run-agent.env` to `/etc/`
-4. Run:
-```bash
-sudo systemctl daemon-reexec
-sudo systemctl enable run-agent
-sudo systemctl start run-agent
-```
-
-## Docker
-```bash
-docker build -t ultahost-agent .
-docker run -p 8080:8080 -e RUN_AGENT_HASH=... -e WHITELISTED_IP=... ultahost-agent
-```
+## 📝 Optional: Build manually without Makefile (if needed)
+go build -o dist/ultahost-agent ./cmd

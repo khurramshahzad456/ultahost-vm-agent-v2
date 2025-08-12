@@ -1,26 +1,28 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"os"
 
-	"ultahost-vm-agent/internal/agent"
-	"ultahost-vm-agent/internal/config"
-	"ultahost-vm-agent/internal/middleware"
-
-	"github.com/gin-gonic/gin"
+	"ultahost-agent/internal/runner"
 )
 
 func main() {
-	if err := config.Load(); err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+	os.MkdirAll("logs", os.ModePerm)
+	logFile, err := os.OpenFile("logs/ultaai/agent.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+
+	if err != nil {
+		log.Fatalf("Failed to create log file: %v", err)
 	}
+	log.SetOutput(logFile)
+	fmt.Println(" log for binary excuted successfully  ")
 
-	r := gin.Default()
-	r.Use(middleware.ValidateIP())
-	r.POST("/run-command", agent.RunCommand)
-
-	log.Println("Secure VM agent running on :8080")
-	if err := r.Run(":8083"); err != nil {
-		log.Fatal(err)
+	scriptPath := "scripts/test_file.sh"
+	output, err := runner.ExecuteScript(scriptPath)
+	if err != nil {
+		log.Printf(" Script execution failed: %v", err)
+	} else {
+		log.Printf(" Script executed successfully:\n%s", output)
 	}
 }
