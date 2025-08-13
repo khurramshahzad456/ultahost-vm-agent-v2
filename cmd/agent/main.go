@@ -1,28 +1,41 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
+	"time"
 
-	"ultahost-agent/internal/runner"
+	"ultahost-agent/internal/agent"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	os.MkdirAll("logs", os.ModePerm)
-	logFile, err := os.OpenFile("logs/ultaai/agent.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	log.Println("UltaAI Agent starting...")
 
+	err := godotenv.Load()
 	if err != nil {
-		log.Fatalf("Failed to create log file: %v", err)
+		log.Fatal("Error loading .env file")
 	}
-	log.SetOutput(logFile)
-	fmt.Println(" log for binary excuted successfully  ")
 
-	scriptPath := "scripts/test_file.sh"
-	output, err := runner.ExecuteScript(scriptPath)
-	if err != nil {
-		log.Printf(" Script execution failed: %v", err)
-	} else {
-		log.Printf(" Script executed successfully:\n%s", output)
+	// Assume token is passed as an env var or CLI arg; here env var for demo
+	installToken := os.Getenv("INSTALL_TOKEN")
+	if installToken == "" {
+		log.Fatal("INSTALL_TOKEN not provided")
 	}
+
+	// Register agent using install token
+	err = agent.RegisterAgent(installToken, "483")
+	if err != nil {
+		log.Fatalf("Agent registration failed: %v", err)
+	}
+	log.Println("Agent registered successfully")
+
+	time.Sleep(5 * time.Second)
+	// Connect to backend WebSocket and start heartbeat
+	err = agent.ConnectAndHeartbeat()
+	if err != nil {
+		log.Fatalf("WebSocket connection failed: %v", err)
+	}
+
 }
