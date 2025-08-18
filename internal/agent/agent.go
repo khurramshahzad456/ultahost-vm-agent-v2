@@ -8,11 +8,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
+
+// var configDir = "/var/lib/ultaai/config"
+
+var configDir = "ultaai-dev/config"
 
 type RegisterRequest struct {
 	InstallToken string `json:"install_token"`
@@ -52,7 +56,6 @@ func savePEMFromBase64(b64 string, begin string, end string) ([]byte, error) {
 
 	return decoded, nil
 }
-
 func RegisterAgent(token string, vpsId string) error {
 	reqBody := RegisterRequest{
 		InstallToken: token,
@@ -60,68 +63,60 @@ func RegisterAgent(token string, vpsId string) error {
 	}
 	bodyBytes, _ := json.Marshal(reqBody)
 	baseUrl := os.Getenv("BASE_URL")
-	// authTOken:=os.Getenv("AUTH_TOKEN")
 
 	req, err := http.NewRequest("POST", baseUrl+"/agent/register", bytes.NewReader(bodyBytes))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
-
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+token)
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to call backend: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
-		respData, _ := ioutil.ReadAll(resp.Body)
+	respData, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("registration failed: %s", string(respData))
 	}
 
-	defer resp.Body.Close()
-
-	encryptedData, err := io.ReadAll(resp.Body)
-	if err != nil {
-		panic(err)
-	}
+	encryptedData := respData // this is the encrypted blob
 
 	decryptedData, err := decryptAESGCM(encryptionKey, encryptedData)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("decryption failed: %w", err)
 	}
 
-	// Parse JSON payload
 	var payload map[string]string
-	err = json.Unmarshal(decryptedData, &payload)
-	if err != nil {
-		panic(err)
+	if err := json.Unmarshal(decryptedData, &payload); err != nil {
+		return fmt.Errorf("unmarshal failed: %w", err)
 	}
 
-	// Save cert and key securely
-	err = os.WriteFile(configDir+"/client.crt", []byte(payload["cert"]), 0644)
-	if err != nil {
-		panic(err)
+	// Save cert and key securely (PEM strings)
+	if err := os.WriteFile(configDir+"/ca.crt", []byte(payload["Cert"]), 0644); err != nil {
+		return err
 	}
-	err = os.WriteFile(configDir+"/client.key", []byte(payload["key"]), 0600)
-	if err != nil {
-		panic(err)
+	if err := os.WriteFile(configDir+"/client.crt", []byte(payload["cert"]), 0644); err != nil {
+		return err
 	}
-	err = os.WriteFile(configDir+"/agent_token", []byte(payload["IdentityToken"]), 0644)
-	if err != nil {
-		panic(err)
+	if err := os.WriteFile(configDir+"/client.key", []byte(payload["key"]), 0600); err != nil {
+		return err
 	}
-	err = os.WriteFile(configDir+"/signature_secret", []byte(payload["SignatureSecret"]), 0600)
-	if err != nil {
-		panic(err)
+	if err := os.WriteFile(configDir+"/agent_identity_token", []byte(payload["IdentityToken"]), 0644); err != nil {
+		return err
+	}
+	// trim newline from signature secret to avoid HMAC mismatch
+	sig := strings.TrimSpace(payload["SignatureSecret"])
+	if err := os.WriteFile(configDir+"/signature_secret", []byte(sig), 0600); err != nil {
+		return err
+	}
+	if err := os.WriteFile(configDir+"/fingerprint_sha256", []byte(payload["FingerprintSHA256"]), 0644); err != nil {
+		return err
 	}
 
-	fmt.Println("Client certificate and key saved successfully")
-
-	fmt.Println("✅ Registration successful, cert & key saved in")
+	fmt.Println("✅ Registration successful, cert & key saved")
 	return nil
 }
 

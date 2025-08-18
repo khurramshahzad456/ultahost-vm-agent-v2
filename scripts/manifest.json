@@ -1,0 +1,6 @@
+{
+  "scripts": [
+    { "name": "check_cpu",    "path": "scripts/check_cpu.sh",    "sha256": "3acd902ebe8fe8fabe13527c46c48f1adcfef1fa5d676a96bd985f74964344a7" },
+    { "name": "check_uptime", "path": "scripts/check_uptime.sh", "sha256": "0f42d7d9c6bd5025d0968c8055c51a63e4aeae641ccacbcfd270c31d0cafc815" }
+  ]
+}
